@@ -1,6 +1,9 @@
 package models
 
-import "database/sql"
+import (
+	"database/sql"
+	"time"
+)
 
 type DBModel struct {
 	DB *sql.DB
@@ -21,7 +24,8 @@ type Widget struct {
 	ID int `json:"id"`
 	Name string `json:"name"`
 	Description string `json:"description"`
-	InventoryLevel int `json:"description"`
-	Description string `json:"description"`
-
+	InventoryLevel int `json:"inventory_level"`
+	Price int `json:"price"`
+	CreatedAt time.Time `json:"-"`
+	UpdatedAt time.Time `json:"-"`
 }

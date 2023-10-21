@@ -1,6 +1,7 @@
 package main
 
 import (
+	"myapp/internal/models"
 	"net/http"
 )
 
@@ -45,10 +46,21 @@ func (app *application) PaymentSucceded(w http.ResponseWriter, r *http.Request) 
 }
 
 func (app *application) ChargeOnce(w http.ResponseWriter, r *http.Request) {
+	widget := models.Widget{
+		ID: 1,
+		Name: "Custom Widget",
+		Description: "A very nice widget",
+		InventoryLevel: 10,
+		Price: 1000,
+	}
+	data := make(map[string]interface{})
+	data["widget"] = widget
+
 	sm := make(map[string]string)
 	sm["publishable_key"] = app.config.stripe.key
 	td := templateData{
 		StringMap: sm,
+		Data: data,
 	}
 	if err := app.renderTemplate(w, r, "buy-once", &td, "stripe-js"); err != nil {
 		app.errorLog.Println(err)
