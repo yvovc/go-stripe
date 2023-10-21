@@ -22,12 +22,18 @@ type templateData struct {
 	CSSVersion      string
 }
 
-var functions = template.FuncMap {
+var functions = template.FuncMap{
+	"formatCurrency": formatCurrency,
+}
 
+func formatCurrency(n int) string {
+	f := float32(n/100)
+	return fmt.Sprintf("$%.2f", f)
 }
 
 //go:embed templates
 var templateFS embed.FS
+
 
 func (app *application) addDefaultData(td *templateData, r *http.Request) *templateData {
 	td.API = app.config.api
@@ -37,7 +43,6 @@ func (app *application) addDefaultData(td *templateData, r *http.Request) *templ
 func (app *application) renderTemplate(w http.ResponseWriter, r *http.Request, page string, td *templateData, partials ...string) error {
 	var t *template.Template
 	var err error
-
 	templateToRender := fmt.Sprintf("templates/%s.page.gohtml", page)
 
 	_, templateInMap := app.templateCache[templateToRender]
@@ -51,13 +56,14 @@ func (app *application) renderTemplate(w http.ResponseWriter, r *http.Request, p
 			return err
 		}
 	}
+
 	if td == nil {
 		td = &templateData{}
 	}
+
 	td = app.addDefaultData(td, r)
 
 	err = t.Execute(w, td)
-
 	if err != nil {
 		app.errorLog.Println(err)
 		return err
@@ -69,7 +75,7 @@ func (app *application) renderTemplate(w http.ResponseWriter, r *http.Request, p
 func (app *application) parseTemplate(partials []string, page, templateToRender string) (*template.Template, error) {
 	var t *template.Template
 	var err error
-
+	
 	// build partials
 	if len(partials) > 0 {
 		for i, x := range partials {
@@ -78,12 +84,10 @@ func (app *application) parseTemplate(partials []string, page, templateToRender 
 	}
 
 	if len(partials) > 0 {
-		//"%s.page.tmpl" or "templates/%s.page.tmpl" ??
 		t, err = template.New(fmt.Sprintf("%s.page.gohtml", page)).Funcs(functions).ParseFS(templateFS, "templates/base.layout.gohtml", strings.Join(partials, ","), templateToRender)
 	} else {
 		t, err = template.New(fmt.Sprintf("%s.page.gohtml", page)).Funcs(functions).ParseFS(templateFS, "templates/base.layout.gohtml", templateToRender)
 	}
-	
 	if err != nil {
 		app.errorLog.Println(err)
 		return nil, err
