@@ -21,7 +21,7 @@ type Widget struct {
 	ID int `json:"id"`
 	Name string `json:"name"`
 	Description string `json:"description"`
-	InventoryLevel string `json:"description"`
+	InventoryLevel int `json:"description"`
 	Description string `json:"description"`
 
 }
