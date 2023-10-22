@@ -5,6 +5,8 @@ import (
 	"myapp/internal/cards"
 	"net/http"
 	"strconv"
+
+	"github.com/go-chi/chi/v5"
 )
 
 type stripePayload struct {
@@ -23,28 +25,26 @@ func (app *application) GetPaymentIntent(w http.ResponseWriter, r *http.Request)
 	var payload stripePayload
 
 	err := json.NewDecoder(r.Body).Decode(&payload)
-
 	if err != nil {
 		app.errorLog.Println(err)
 		return
 	}
 
 	amount, err := strconv.Atoi(payload.Amount)
-
 	if err != nil {
 		app.errorLog.Println(err)
 		return
 	}
 
-	card := cards.Card{
+	card := cards.Card {
 		Secret: app.config.stripe.secret,
 		Key: app.config.stripe.key,
 		Currency: payload.Currency,
 	}
+
 	okay := true
 
-	pi, msg, err := card.Charge(card.Currency, amount)
-
+	pi, msg, err := card.Charge(payload.Currency, amount)
 	if err != nil {
 		okay = false
 	}
@@ -55,6 +55,7 @@ func (app *application) GetPaymentIntent(w http.ResponseWriter, r *http.Request)
 			app.errorLog.Println(err)
 			return
 		}
+
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(out)
 	} else {
@@ -65,7 +66,6 @@ func (app *application) GetPaymentIntent(w http.ResponseWriter, r *http.Request)
 		}
 	
 		out, err := json.MarshalIndent(j, "", "   ")
-	
 		if err != nil {
 			app.errorLog.Println(err)
 		}
@@ -73,6 +73,25 @@ func (app *application) GetPaymentIntent(w http.ResponseWriter, r *http.Request)
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(out)
 	}
+}
 
-	
+// GetWidgetByID gets one widget by id and returns as JSON
+func (app *application) GetWidgetByID(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	widgetID, _ := strconv.Atoi(id)
+
+	widget, err := app.DB.GetWidget(widgetID)
+	if err != nil {
+		app.errorLog.Println(err)
+		return
+	}
+
+	out, err := json.MarshalIndent(widget, "", "   ")
+	if err != nil {
+		app.errorLog.Println(err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(out)
 }
