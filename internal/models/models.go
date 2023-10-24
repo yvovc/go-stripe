@@ -31,6 +31,8 @@ type Widget struct {
 	InventoryLevel int       `json:"inventory_level"`
 	Price          int       `json:"price"`
 	Image          string    `json:"image"`
+	IsRecurring    bool      `json:"is_recurring"`
+	PlanID         string    `json:"plan_id"`
 	CreatedAt      time.Time `json:"-"`
 	UpdatedAt      time.Time `json:"-"`
 }
@@ -70,6 +72,10 @@ type Transaction struct {
 	Amount              int       `json:"amount"`
 	Currency            string    `json:"currency"`
 	LastFour            string    `json:"last_four"`
+	ExpiryMonth         int       `json:"expiry_month"`
+	ExpiryYear          int       `json:"expiry_year"`
+	PaymentIntent       string    `json:"payment_intent"`
+	PaymentMethod       string    `json:"payment_method"`
 	BankReturnCode      string    `json:"bank_return_code"`
 	TransactionStatusID int       `json:"transaction_status_id"`
 	CreatedAt           time.Time `json:"-"`
@@ -107,6 +113,7 @@ func (m *DBModel) GetWidget(id int) (Widget, error) {
 	row := m.DB.QueryRowContext(ctx, `
 		select 
 			id, name, description, inventory_level, price, coalesce(image, ''),
+			is_recurring, plan_id,
 			created_at, updated_at
 		from 
 			widgets 
@@ -118,6 +125,8 @@ func (m *DBModel) GetWidget(id int) (Widget, error) {
 		&widget.InventoryLevel,
 		&widget.Price,
 		&widget.Image,
+		&widget.IsRecurring,
+		&widget.PlanID,
 		&widget.CreatedAt,
 		&widget.UpdatedAt,
 	)
@@ -135,9 +144,10 @@ func (m *DBModel) InsertTransaction(txn Transaction) (int, error) {
 
 	stmt := `
 		insert into transactions
-			(amount, currency, last_four, bank_return_code,
+			(amount, currency, last_four, bank_return_code, expiry_month, expiry_year,
+				payment_intent, payment_method,
 			transaction_status_id, created_at, updated_at)
-		values (?, ?, ?, ?, ?, ?, ?)
+		values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	result, err := m.DB.ExecContext(ctx, stmt,
@@ -145,6 +155,10 @@ func (m *DBModel) InsertTransaction(txn Transaction) (int, error) {
 		txn.Currency,
 		txn.LastFour,
 		txn.BankReturnCode,
+		txn.ExpiryMonth,
+		txn.ExpiryYear,
+		txn.PaymentIntent,
+		txn.PaymentMethod,
 		txn.TransactionStatusID,
 		time.Now(),
 		time.Now(),
@@ -168,9 +182,9 @@ func (m *DBModel) InsertOrder(order Order) (int, error) {
 
 	stmt := `
 		insert into orders
-			(widget_id, transaction_id, status_id, quantity,
+			(widget_id, transaction_id, status_id, quantity, customer_id,
 			amount, created_at, updated_at)
-		values (?, ?, ?, ?, ?, ?, ?)
+		values (?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	result, err := m.DB.ExecContext(ctx, stmt,
@@ -178,7 +192,37 @@ func (m *DBModel) InsertOrder(order Order) (int, error) {
 		order.TransactionID,
 		order.StatusID,
 		order.Quantity,
+		order.CustomerID,
 		order.Amount,
+		time.Now(),
+		time.Now(),
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	return int(id), nil
+}
+
+// InsertOrder inserts a new order, and returns its id
+func (m *DBModel) InsertCustomer(c Customer) (int, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	stmt := `
+		insert into customers
+			(first_name, last_name, email, created_at, updated_at)
+		values (?, ?, ?, ?, ?)`
+
+	result, err := m.DB.ExecContext(ctx, stmt,
+		c.FirstName,
+		c.LastName,
+		c.Email,
 		time.Now(),
 		time.Now(),
 	)
